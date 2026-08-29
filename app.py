@@ -26,6 +26,44 @@ with tab1:
 with tab2:
     uploaded_file = st.file_uploader("Upload an MP4 or MOV video file:", type=["mp4", "mov", "mkv"])
 
+# Robust YouTube Downloader with TV Player Client Fallback (Bypasses Bot Verification)
+def download_youtube_video(url, output_path="input_video.mp4"):
+    client_strategies = [
+        ['tv', 'mweb'],
+        ['ios', 'android'],
+        ['web', 'mweb']
+    ]
+    last_err = None
+    for clients in client_strategies:
+        try:
+            if os.path.exists(output_path):
+                os.remove(output_path)
+            
+            ydl_opts = {
+                'format': 'b[ext=mp4]/best[ext=mp4]/best',
+                'outtmpl': output_path,
+                'overwrites': True,
+                'extractor_args': {
+                    'youtube': {
+                        'player_client': clients
+                    }
+                },
+                'nocheckcertificate': True,
+                'quiet': True
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([url])
+                
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                return True
+        except Exception as e:
+            last_err = e
+            continue
+            
+    if last_err:
+        raise last_err
+    return False
+
 # Helper function to generate ASS Subtitles with Bold Yellow styling
 def format_time_ass(seconds):
     h = int(seconds // 3600)
@@ -78,9 +116,6 @@ if st.button("🚀 Generate 7-8 Viral Shorts Now", type="primary"):
         st.error("Please enter your free Google Gemini API Key in the sidebar.")
     else:
         try:
-            if os.path.exists("input_video.mp4"):
-                os.remove("input_video.mp4")
-
             # Step 1: Download / Save Video
             if uploaded_file is not None:
                 with st.spinner("1️⃣ Saving uploaded video file..."):
@@ -89,21 +124,7 @@ if st.button("🚀 Generate 7-8 Viral Shorts Now", type="primary"):
                     st.success("✅ Video file ready!")
             else:
                 with st.spinner("1️⃣ Downloading YouTube Video..."):
-                    ydl_opts = {
-                        'format': 'best[ext=mp4]/best',
-                        'outtmpl': 'input_video.mp4',
-                        'overwrites': True,
-                        'extractor_args': {
-                            'youtube': {
-                                'player_client': ['ios', 'mweb', 'web']
-                            }
-                        },
-                        'http_headers': {
-                            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
-                        }
-                    }
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        ydl.download([yt_url])
+                    download_youtube_video(yt_url, "input_video.mp4")
                     st.success("✅ Video downloaded!")
 
             # Step 2: Transcribe Audio with Timestamps
@@ -188,7 +209,7 @@ if st.button("🚀 Generate 7-8 Viral Shorts Now", type="primary"):
             st.balloons()
             st.header("🎉 Your Ranked Viral Shorts with Bold Captions Are Ready!")
 
-            # Display Videos in a responsive grid
+            # Display Videos
             for idx, (clip, file_path) in enumerate(rendered_files):
                 st.markdown("---")
                 c1, c2 = st.columns([1, 2])
@@ -212,7 +233,7 @@ if st.button("🚀 Generate 7-8 Viral Shorts Now", type="primary"):
 
         except Exception as e:
             err_msg = str(e)
-            if "DRM protected" in err_msg:
-                st.error("⚠️ This YouTube video is DRM-protected by its owner. Please try a podcast/interview video or upload an MP4 file!")
+            if "DRM protected" in err_msg or "confirm you're not a bot" in err_msg:
+                st.error("⚠️ YouTube bot verification block for this URL. Please use the 'Upload Video File' tab to upload your MP4 file directly!")
             else:
                 st.error(f"An error occurred: {err_msg}")
