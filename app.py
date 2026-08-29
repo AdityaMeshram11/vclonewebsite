@@ -8,41 +8,62 @@ import whisper
 from google import genai
 
 st.set_page_config(page_title="Free AI Shorts Generator", page_icon="🎬", layout="wide")
-st.title("🎬 Free AI YouTube Shorts Generator")
-st.write("Paste a YouTube link below to automatically generate 9:16 vertical shorts with AI clip ranking!")
+st.title("🎬 Free AI Shorts Generator")
+st.write("Generate 9:16 vertical shorts from YouTube links OR your uploaded video files!")
 
+# Sidebar API Key
 st.sidebar.header("🔑 API Settings")
 gemini_key = st.sidebar.text_input("Enter Free Gemini API Key:", type="password", help="Get free key from aistudio.google.com")
 
-yt_url = st.text_input("Paste YouTube Video URL:", placeholder="https://www.youtube.com/watch?v=...")
+# Choice: YouTube URL or Direct File Upload
+tab1, tab2 = st.tabs(["🔗 YouTube Link", "📁 Upload Video File"])
+
+yt_url = ""
+uploaded_file = None
+
+with tab1:
+    yt_url = st.text_input("Paste YouTube Video URL:", placeholder="https://www.youtube.com/watch?v=...")
+
+with tab2:
+    uploaded_file = st.file_uploader("Upload an MP4 or MOV video file:", type=["mp4", "mov", "mkv"])
 
 if st.button("🚀 Generate Shorts Now", type="primary"):
-    if not yt_url:
-        st.error("Please paste a valid YouTube URL.")
+    if not yt_url and not uploaded_file:
+        st.error("Please paste a YouTube URL or upload a video file.")
     elif not gemini_key:
         st.error("Please enter your free Google Gemini API Key in the sidebar.")
     else:
         try:
-            # 1. Download Video (Bypasses YouTube 403 Forbidden cloud block)
-            with st.spinner("1️⃣ Downloading YouTube Video..."):
-                if os.path.exists("input_video.mp4"):
-                    os.remove("input_video.mp4")
-                
-                ydl_opts = {
-                    'format': 'b[ext=mp4]/best[ext=mp4]/best',
-                    'outtmpl': 'input_video.mp4',
-                    'overwrites': True,
-                    'extractor_args': {
-                        'youtube': {
-                            'player_client': ['android', 'web']
+            # Clean up old video
+            if os.path.exists("input_video.mp4"):
+                os.remove("input_video.mp4")
+
+            # Step 1: Handle Video Source
+            if uploaded_file is not None:
+                with st.spinner("1️⃣ Saving uploaded video file..."):
+                    with open("input_video.mp4", "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                    st.success("✅ File uploaded successfully!")
+            else:
+                with st.spinner("1️⃣ Downloading YouTube Video..."):
+                    ydl_opts = {
+                        'format': 'best[ext=mp4]/best',
+                        'outtmpl': 'input_video.mp4',
+                        'overwrites': True,
+                        'extractor_args': {
+                            'youtube': {
+                                'player_client': ['ios', 'mweb', 'web']
+                            }
+                        },
+                        'http_headers': {
+                            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
                         }
                     }
-                }
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([yt_url])
-                st.success("✅ Video downloaded successfully!")
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        ydl.download([yt_url])
+                    st.success("✅ Video downloaded successfully!")
 
-            # 2. Transcribe Audio
+            # Step 2: Transcribe Audio
             with st.spinner("2️⃣ Transcribing Audio with Whisper AI..."):
                 model = whisper.load_model("tiny")
                 result = model.transcribe("input_video.mp4")
@@ -53,7 +74,7 @@ if st.button("🚀 Generate Shorts Now", type="primary"):
                 full_transcript = "\n".join(transcript_lines)
                 st.success("✅ Audio transcribed!")
 
-            # 3. AI Moment Ranking (New official Google GenAI SDK)
+            # Step 3: AI Moment Ranking
             with st.spinner("3️⃣ Gemini AI Analyzing Viral Moments..."):
                 client = genai.Client(api_key=gemini_key)
                 
@@ -80,7 +101,7 @@ if st.button("🚀 Generate Shorts Now", type="primary"):
                 clips = json.loads(json_match.group(0)) if json_match else json.loads(raw_text)
                 st.success(f"✅ AI identified {len(clips)} viral moments!")
 
-            # 4. Render 9:16 Vertical Shorts
+            # Step 4: Render 9:16 Vertical Shorts
             with st.spinner("4️⃣ Rendering 9:16 Vertical Shorts..."):
                 os.makedirs("rendered_shorts", exist_ok=True)
                 rendered_files = []
