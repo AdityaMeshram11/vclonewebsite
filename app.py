@@ -15,7 +15,6 @@ st.write("Generate 9:16 vertical shorts from YouTube links OR your uploaded vide
 st.sidebar.header("🔑 API Settings")
 gemini_key = st.sidebar.text_input("Enter Free Gemini API Key:", type="password", help="Get free key from aistudio.google.com")
 
-# Choice: YouTube URL or Direct File Upload
 tab1, tab2 = st.tabs(["🔗 YouTube Link", "📁 Upload Video File"])
 
 yt_url = ""
@@ -34,11 +33,10 @@ if st.button("🚀 Generate Shorts Now", type="primary"):
         st.error("Please enter your free Google Gemini API Key in the sidebar.")
     else:
         try:
-            # Clean up old video
             if os.path.exists("input_video.mp4"):
                 os.remove("input_video.mp4")
 
-            # Step 1: Handle Video Source
+            # Step 1: Video Source
             if uploaded_file is not None:
                 with st.spinner("1️⃣ Saving uploaded video file..."):
                     with open("input_video.mp4", "wb") as f:
@@ -138,4 +136,8 @@ if st.button("🚀 Generate Shorts Now", type="primary"):
                         )
 
         except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
+            err_msg = str(e)
+            if "DRM protected" in err_msg:
+                st.error("⚠️ This YouTube video is DRM-protected (encrypted) by its publisher. Please try a standard YouTube video (podcast, vlog, interview) or upload an MP4 video file!")
+            else:
+                st.error(f"An error occurred: {err_msg}")
